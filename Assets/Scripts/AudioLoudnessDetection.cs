@@ -2,52 +2,76 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class AudioLoudnessDetection : MonoBehaviour
+namespace UnityWebGLMicrophone
 {
-    int sampleWindow = 64;
-    private AudioClip microphoneClip;
-
-    // Start is called before the first frame update
-    void Start()
+    public class AudioLoudnessDetection : MonoBehaviour
     {
-        MicrophoneToAudioClip();   
-    }
+        int sampleWindow = 64;
+        private AudioClip microphoneClip;
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+        string[] devices;
+        float[] volumes;
 
-    public void MicrophoneToAudioClip()
-    {
-        //string microphoneName = Microphone.devices[0];
-        //microphoneClip = Microphone.Start(microphoneName, true, 20, AudioSettings.outputSampleRate);
-    }
-
-    public float GetLoudnessFromMicrophone()
-    {
-        return 1f;
-        //return GetLoudnessFromAudioClip(Microphone.GetPosition(Microphone.devices[0]), microphoneClip);
-    }
-
-    public float GetLoudnessFromAudioClip(int clipPosition, AudioClip clip)
-    {
-        int startPosition = clipPosition - sampleWindow;
-
-        if (startPosition < 0)
-            return 0;
-
-        float[] waveData = new float[sampleWindow];
-        clip.GetData(waveData, startPosition);
-
-        float totalLoudness = 0;
-
-        for (int i = 0; i < sampleWindow; i++)
+#if UNITY_WEBGL && !UNITY_EDITOR
+        void Awake()
         {
-            totalLoudness += Mathf.Abs(waveData[i]);
+            Microphone.Init();
+            Microphone.QueryAudioInput();
         }
 
-        return totalLoudness / (float)sampleWindow;
+        void Update()
+        {
+            Microphone.Update();
+
+            devices = Microphone.devices;
+            volumes = Microphone.volumes;            
+        }
+#else
+        void Start()
+        {
+            MicrophoneToAudioClip();
+        }
+
+
+        public void MicrophoneToAudioClip()
+        {
+            string microphoneName = Microphone.devices[0];
+            microphoneClip = Microphone.Start(microphoneName, true, 20, AudioSettings.outputSampleRate);
+        }
+#endif
+
+        public float GetLoudnessFromMicrophone()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (volumes.Length > 0)
+            {
+                return volumes[0];
+            }else{
+                return 0;
+            }
+#else
+            return GetLoudnessFromAudioClip(Microphone.GetPosition(Microphone.devices[0]), microphoneClip);
+#endif
+        }
+
+        public float GetLoudnessFromAudioClip(int clipPosition, AudioClip clip)
+        {
+            int startPosition = clipPosition - sampleWindow;
+
+            if (startPosition < 0)
+                return 0;
+
+            float[] waveData = new float[sampleWindow];
+            clip.GetData(waveData, startPosition);
+
+            float totalLoudness = 0;
+
+            for (int i = 0; i < sampleWindow; i++)
+            {
+                totalLoudness += Mathf.Abs(waveData[i]);
+            }
+
+            return totalLoudness / (float)sampleWindow;
+        }
     }
 }
